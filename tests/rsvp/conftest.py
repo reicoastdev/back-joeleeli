@@ -47,10 +47,12 @@ def public_token(public_invitation):
 
 
 @pytest.fixture
-def rsvp_url(public_token):
-    return reverse("public-rsvp", kwargs={"token": public_token})
+def rsvp_url():
+    return reverse("public-rsvp")
 
 
 @pytest.fixture
-def api_client():
-    return APIClient()
+def api_client(public_token):
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {public_token}")
+    return client

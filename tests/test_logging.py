@@ -66,3 +66,26 @@ def test_json_formatter_redacts_public_invitation_token_from_message():
     assert payload["message"] == (
         "Not Found: /api/v1/public/invitations/[REDACTED]/rsvp/"
     )
+
+
+def test_bearer_token_is_absent_from_public_rsvp_request_log(rf):
+    token = "SUPER_SECRET_PUBLIC_TOKEN_XYZ"
+    record = logging.LogRecord(
+        name="django.request",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg="request completed",
+        args=(),
+        exc_info=None,
+    )
+    record.request = rf.get(
+        "/api/v1/public/rsvp/",
+        HTTP_AUTHORIZATION=f"Bearer {token}",
+    )
+
+    rendered_log = JsonFormatter().format(record)
+    payload = json.loads(rendered_log)
+
+    assert token not in rendered_log
+    assert payload["path"] == "/api/v1/public/rsvp/"

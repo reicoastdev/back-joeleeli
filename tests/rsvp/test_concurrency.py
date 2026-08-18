@@ -14,8 +14,10 @@ def submit_in_independent_connection(*, token, payload, barrier):
     close_old_connections()
     try:
         barrier.wait(timeout=10)
-        return APIClient().put(
-            reverse("public-rsvp", kwargs={"token": token}),
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        return client.put(
+            reverse("public-rsvp"),
             payload,
             format="json",
         )

@@ -1,4 +1,4 @@
-from drf_spectacular.utils import OpenApiResponse, extend_schema
+from drf_spectacular.utils import OpenApiParameter, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny
@@ -19,6 +19,14 @@ def _generic_not_found():
     return NotFound("Public invitation was not found.")
 
 
+def _get_bearer_token(request):
+    authorization = request.headers.get("Authorization", "")
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].casefold() != "bearer":
+        raise _generic_not_found()
+    return parts[1]
+
+
 class PublicRSVPView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
@@ -31,6 +39,15 @@ class PublicRSVPView(APIView):
     @extend_schema(
         operation_id="public_rsvp_retrieve",
         description="Retrieve the current public RSVP state for an invitation.",
+        parameters=[
+            OpenApiParameter(
+                name="Authorization",
+                type=str,
+                location=OpenApiParameter.HEADER,
+                required=True,
+                description="Bearer public invitation credential.",
+            )
+        ],
         responses={
             status.HTTP_200_OK: PublicRSVPResponseSerializer,
             status.HTTP_404_NOT_FOUND: OpenApiResponse(
@@ -40,7 +57,8 @@ class PublicRSVPView(APIView):
         },
         auth=[],
     )
-    def get(self, request, token):
+    def get(self, request):
+        token = _get_bearer_token(request)
         try:
             response_data = get_public_rsvp(token)
         except PublicInvitationNotFound:
@@ -50,6 +68,15 @@ class PublicRSVPView(APIView):
     @extend_schema(
         operation_id="public_rsvp_update",
         description=("Submit a complete RSVP composition using CONFIRMED or DECLINED."),
+        parameters=[
+            OpenApiParameter(
+                name="Authorization",
+                type=str,
+                location=OpenApiParameter.HEADER,
+                required=True,
+                description="Bearer public invitation credential.",
+            )
+        ],
         request=PublicRSVPSubmissionSerializer,
         responses={
             status.HTTP_200_OK: PublicRSVPResponseSerializer,
@@ -67,7 +94,8 @@ class PublicRSVPView(APIView):
         },
         auth=[],
     )
-    def put(self, request, token):
+    def put(self, request):
+        token = _get_bearer_token(request)
         try:
             response_data = submit_public_rsvp(token=token, payload=request.data)
         except PublicInvitationNotFound:
