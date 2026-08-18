@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: joeleeli
+      POSTGRES_USER: joeleeli
+      POSTGRES_PASSWORD: joeleeli
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U joeleeli -d joeleeli"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: .
+      target: development
+    command: >-
+      sh -c "uv run --no-sync python manage.py migrate &&
+      uv run --no-sync python manage.py runserver 0.0.0.0:8000"
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.local
+      DJANGO_SECRET_KEY: django-insecure-docker-local-development-only
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0
+      DATABASE_URL: postgresql://joeleeli:joeleeli@db:5432/joeleeli
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:5173
+      CSRF_TRUSTED_ORIGINS: http://localhost:3000,http://localhost:5173
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "uv",
+          "run",
+          "--no-sync",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/', timeout=2)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - app_venv:/app/.venv
+
+volumes:
+  postgres_data:
+  app_venv:
