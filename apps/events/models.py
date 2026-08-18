@@ -1,5 +1,6 @@
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q
@@ -107,3 +108,38 @@ class InvitationCategory(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class EventMembership(models.Model):
+    class Role(models.TextChoices):
+        SUPERVISOR = "SUPERVISOR", "Supervisor"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="event_memberships",
+    )
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    role = models.CharField(max_length=10, choices=Role, default=Role.SUPERVISOR)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "event"),
+                name="events_membership_user_event_unique",
+            ),
+            models.CheckConstraint(
+                condition=Q(role="SUPERVISOR"),
+                name="events_membership_role_supervisor",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.user} — {self.event} ({self.role})"
