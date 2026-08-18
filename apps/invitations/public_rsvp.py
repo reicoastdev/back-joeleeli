@@ -78,8 +78,9 @@ def _public_rsvp_data(invitation):
     }
 
 
+@transaction.atomic
 def get_public_rsvp(token):
-    invitation = _get_available_invitation(token)
+    invitation = _get_available_invitation(token, lock=True)
     return _public_rsvp_data(invitation)
 
 

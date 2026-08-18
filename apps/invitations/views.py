@@ -23,6 +23,11 @@ class PublicRSVPView(APIView):
     authentication_classes = []
     permission_classes = [AllowAny]
 
+    def finalize_response(self, request, response, *args, **kwargs):
+        response = super().finalize_response(request, response, *args, **kwargs)
+        response["Cache-Control"] = "no-store"
+        return response
+
     @extend_schema(
         operation_id="public_rsvp_retrieve",
         description="Retrieve the current public RSVP state for an invitation.",

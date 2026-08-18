@@ -30,6 +30,7 @@ def test_get_public_rsvp_returns_only_required_pending_state(
     response = api_client.get(rsvp_url)
 
     assert response.status_code == status.HTTP_200_OK
+    assert "no-store" in response["Cache-Control"]
     assert response.json() == {
         "event": {
             "name": active_event.name,
