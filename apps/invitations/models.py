@@ -47,20 +47,30 @@ class Invitation(models.Model):
 
     def clean(self):
         super().clean()
-        if self.event_id is None or self.category_id is None:
-            return
+        if self.event_id is not None and self.category_id is not None:
+            category = self._state.fields_cache.get("category")
+            if category is not None:
+                category_event_id = category.event_id
+            else:
+                category_event_id = (
+                    InvitationCategory.objects.filter(pk=self.category_id)
+                    .values_list("event_id", flat=True)
+                    .first()
+                )
 
-        category = self._state.fields_cache.get("category")
-        if category is not None:
-            category_event_id = category.event_id
-        else:
-            category_event_id = (
-                InvitationCategory.objects.filter(pk=self.category_id)
-                .values_list("event_id", flat=True)
-                .first()
-            )
+            if category_event_id is not None and category_event_id != self.event_id:
+                raise ValidationError(
+                    {"category": "The category must belong to the invitation event."}
+                )
 
-        if category_event_id is not None and category_event_id != self.event_id:
-            raise ValidationError(
-                {"category": "The category must belong to the invitation event."}
-            )
+        if self.pk is not None and self.guest_limit is not None:
+            active_guest_count = self.guests.filter(is_active=True).count()
+            if self.guest_limit < active_guest_count:
+                raise ValidationError(
+                    {
+                        "guest_limit": (
+                            "The guest limit cannot be lower than the number of "
+                            "active guests."
+                        )
+                    }
+                )
