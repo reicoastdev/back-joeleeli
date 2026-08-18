@@ -1,6 +1,17 @@
 import json
 import logging
+import re
 from datetime import UTC, datetime
+
+SENSITIVE_PUBLIC_INVITATION_PATH = re.compile(
+    r"(/api/v1/public/invitations/)[^/?\s]+(?=/|[?\s]|$)"
+)
+
+
+def redact_sensitive_paths(value):
+    if not isinstance(value, str):
+        return value
+    return SENSITIVE_PUBLIC_INVITATION_PATH.sub(r"\1[REDACTED]", value)
 
 
 class JsonFormatter(logging.Formatter):
@@ -11,7 +22,7 @@ class JsonFormatter(logging.Formatter):
             "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": redact_sensitive_paths(record.getMessage()),
         }
 
         status_code = getattr(record, "status_code", None)
@@ -21,9 +32,11 @@ class JsonFormatter(logging.Formatter):
         request = getattr(record, "request", None)
         if hasattr(request, "method") and hasattr(request, "path"):
             payload["method"] = request.method
-            payload["path"] = request.path
+            payload["path"] = redact_sensitive_paths(request.path)
 
         if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
+            payload["exception"] = redact_sensitive_paths(
+                self.formatException(record.exc_info)
+            )
 
         return json.dumps(payload, ensure_ascii=False)
