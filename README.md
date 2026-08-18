@@ -68,6 +68,8 @@ execução, o pytest cria e remove seu próprio banco de teste de forma isolada.
 ## API e documentação
 
 - Health check: `GET /api/v1/health/`;
+- RSVP público: `GET/PUT /api/v1/public/rsvp/`, com a credencial somente no header
+  `Authorization: Bearer <token>`;
 - schema OpenAPI: `GET /api/schema/`;
 - Swagger UI: `GET /api/docs/`;
 - Django Admin: `/admin/`.
@@ -78,8 +80,16 @@ Novos endpoints de negócio devem ser adicionados sob `/api/v1/`.
 
 O arquivo `.env.example` documenta as variáveis locais. O `.env` real é ignorado pelo
 Git. Em produção, use `DJANGO_SETTINGS_MODULE=config.settings.production`; nessa
-configuração, `DJANGO_SECRET_KEY`, `DATABASE_URL` e `DJANGO_ALLOWED_HOSTS` são
-obrigatórios e a inicialização falha explicitamente quando estiverem ausentes.
+configuração, `DJANGO_SECRET_KEY`, `DATABASE_URL` e ao menos uma origem de host
+(`DJANGO_ALLOWED_HOSTS` ou domínio injetado pela Railway) são obrigatórios. A
+inicialização falha explicitamente quando estiverem ausentes.
 
 `CORS_ALLOWED_ORIGINS` e `CSRF_TRUSTED_ORIGINS` aceitam listas separadas por vírgula.
 Não há liberação global de CORS.
+
+## Railway
+
+A imagem de produção serve os estáticos do Admin com WhiteNoise, executa Gunicorn
+na porta injetada pela plataforma e usa uma etapa pre-deploy para migrations. O guia
+de configuração do projeto, serviços, variáveis e domínios está em
+[`docs/railway.md`](docs/railway.md).

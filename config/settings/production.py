@@ -14,14 +14,22 @@ def required_env(name):
 DEBUG = False
 SECRET_KEY = required_env("DJANGO_SECRET_KEY")
 required_env("DATABASE_URL")
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[])
-if not ALLOWED_HOSTS:
+configured_hosts = env.list("DJANGO_ALLOWED_HOSTS", default=[])
+railway_hosts = [
+    env("RAILWAY_PUBLIC_DOMAIN", default="").strip(),
+    env("RAILWAY_PRIVATE_DOMAIN", default="").strip(),
+]
+deployment_hosts = [host for host in [*configured_hosts, *railway_hosts] if host]
+if not deployment_hosts:
     raise ImproperlyConfigured(
-        "The DJANGO_ALLOWED_HOSTS environment variable is required."
+        "DJANGO_ALLOWED_HOSTS or a Railway domain environment variable is required."
     )
+ALLOWED_HOSTS = list(dict.fromkeys([*deployment_hosts, "healthcheck.railway.app"]))
+MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")  # noqa: F405
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SECURE_SSL_REDIRECT = True
+SECURE_REDIRECT_EXEMPT = [r"^api/v1/health/$"]
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31_536_000
@@ -31,3 +39,7 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_REFERRER_POLICY = "same-origin"
 SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
+
+STORAGES["staticfiles"] = {  # noqa: F405
+    "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+}
