@@ -23,6 +23,18 @@ class Invitation(models.Model):
     guest_limit = models.PositiveIntegerField(validators=[MinValueValidator(1)])
     notes = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
+    public_token = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        unique=True,
+        editable=False,
+    )
+    public_token_issued_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -40,6 +52,23 @@ class Invitation(models.Model):
                 condition=Q(guest_limit__gte=1),
                 name="invitations_invitation_guest_limit_gte_1",
             ),
+            models.CheckConstraint(
+                condition=Q(public_token__isnull=True) | ~Q(public_token=""),
+                name="invitations_public_token_not_empty",
+            ),
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        public_token__isnull=True,
+                        public_token_issued_at__isnull=True,
+                    )
+                    | Q(
+                        public_token__isnull=False,
+                        public_token_issued_at__isnull=False,
+                    )
+                ),
+                name="invitations_public_token_issued_state_valid",
+            ),
         ]
 
     def __str__(self):
@@ -47,6 +76,18 @@ class Invitation(models.Model):
 
     def clean(self):
         super().clean()
+        if self.public_token == "":
+            raise ValidationError({"public_token": "The public token cannot be empty."})
+        if (self.public_token is None) != (self.public_token_issued_at is None):
+            raise ValidationError(
+                {
+                    "public_token": (
+                        "The public token and its issuance timestamp must be set "
+                        "or cleared together."
+                    )
+                }
+            )
+
         if self.event_id is not None and self.category_id is not None:
             category = self._state.fields_cache.get("category")
             if category is not None:
