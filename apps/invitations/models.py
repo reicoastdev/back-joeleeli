@@ -98,7 +98,6 @@ class Invitation(models.Model):
                     .values_list("event_id", flat=True)
                     .first()
                 )
-
             if category_event_id is not None and category_event_id != self.event_id:
                 raise ValidationError(
                     {"category": "The category must belong to the invitation event."}
@@ -115,3 +114,29 @@ class Invitation(models.Model):
                         )
                     }
                 )
+
+
+class InvitationResponse(models.Model):
+    class Status(models.TextChoices):
+        CONFIRMED = "CONFIRMED", "Confirmed"
+        DECLINED = "DECLINED", "Declined"
+
+    invitation = models.ForeignKey(
+        Invitation,
+        on_delete=models.CASCADE,
+        related_name="rsvp_responses",
+    )
+    status = models.CharField(max_length=9, choices=Status)
+    guest_names = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(status__in=["CONFIRMED", "DECLINED"]),
+                name="invitations_response_status_valid",
+            )
+        ]
+
+    def __str__(self):
+        return f"RSVP response #{self.pk}: {self.status}"
