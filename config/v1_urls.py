@@ -6,7 +6,7 @@ from apps.invitations.views import PublicRSVPView
 urlpatterns = [
     path("health/", HealthCheckView.as_view(), name="health-check"),
     path(
-        "public/invitations/<str:token>/rsvp/",
+        "public/rsvp/",
         PublicRSVPView.as_view(),
         name="public-rsvp",
     ),

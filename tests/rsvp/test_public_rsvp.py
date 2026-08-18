@@ -1,7 +1,6 @@
 from datetime import timedelta
 
 import pytest
-from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 
@@ -76,21 +75,49 @@ def test_get_remains_available_after_deadline(
 @pytest.mark.django_db
 def test_invalid_and_revoked_tokens_return_same_generic_404(
     api_client,
+    rsvp_url,
     public_invitation,
     public_token,
 ):
-    invalid_response = api_client.get(
-        reverse("public-rsvp", kwargs={"token": "unknown-public-token"})
-    )
+    api_client.credentials(HTTP_AUTHORIZATION="Bearer unknown-public-token")
+    invalid_response = api_client.get(rsvp_url)
     revoke_public_token(public_invitation.pk)
-    revoked_response = api_client.get(
-        reverse("public-rsvp", kwargs={"token": public_token})
-    )
+    api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {public_token}")
+    revoked_response = api_client.get(rsvp_url)
 
     assert invalid_response.status_code == status.HTTP_404_NOT_FOUND
     assert revoked_response.status_code == status.HTTP_404_NOT_FOUND
     assert invalid_response.json() == revoked_response.json()
     assert public_token not in revoked_response.content.decode()
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "authorization",
+    [None, "", "Basic credential", "Bearer", "Bearer one two"],
+)
+def test_missing_or_malformed_authorization_returns_generic_404(
+    api_client,
+    rsvp_url,
+    authorization,
+):
+    api_client.credentials()
+    request_headers = {}
+    if authorization is not None:
+        request_headers["HTTP_AUTHORIZATION"] = authorization
+
+    response = api_client.get(rsvp_url, **request_headers)
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.json() == {"detail": "Public invitation was not found."}
+
+
+@pytest.mark.django_db
+def test_legacy_token_path_is_not_routed(api_client, public_token):
+    response = api_client.get(f"/api/v1/public/invitations/{public_token}/rsvp/")
+
+    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert public_token not in response.content.decode()
 
 
 @pytest.mark.django_db
@@ -305,9 +332,10 @@ def test_put_after_deadline_returns_stable_conflict_without_changes(
 
 
 @pytest.mark.django_db
-def test_invalid_token_takes_precedence_over_payload_validation(api_client):
+def test_invalid_token_takes_precedence_over_payload_validation(api_client, rsvp_url):
+    api_client.credentials(HTTP_AUTHORIZATION="Bearer unknown-public-token")
     response = api_client.put(
-        reverse("public-rsvp", kwargs={"token": "unknown-public-token"}),
+        rsvp_url,
         {"status": "CONFIRMED", "guests": []},
         format="json",
     )
